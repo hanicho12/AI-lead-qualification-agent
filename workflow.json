@@ -1,0 +1,530 @@
+{
+  "name": "Lead Qualification",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "new-lead",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -608,
+        -288
+      ],
+      "id": "e24084ef-d577-4e54-8a61-62d794d4a663",
+      "name": "Webhook",
+      "webhookId": "e533fb9c-a0df-439b-89cd-6fbdba7f9fcf"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "models/gemini-2.5-flash",
+          "mode": "list",
+          "cachedResultName": "models/gemini-2.5-flash"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "=You are an AI sales assistant for a creative agency.  \n\nYou will receive JSON input with the following fields.\n{{ $json.body.fullName }}\n{{ $json.body.email }}\n{{ $json.body.company }}\n{{ $json.body.budget }}\n{{ $json.body.projectDetails }}\n\nAnalyze the input and return a structured JSON response with the following fields:\n\n{\n  \"summary\": \"One-sentence summary of the lead's request.\",\n  \"serviceCategory\": \"One of: Website Redesign, eCommerce Build, Marketing, Other\",\n  \"qualificationScore\": \"Integer from 1-10 based on clarity, budget, and potential value\",\n  \"priority\": \"High, Medium, or Low. Logic:\n     - High: budget > 20000 OR (budget > 15000 AND projectDetails mentions 'e-commerce' or 'redesign')\n     - Medium: budget between 5000 and 20000\n     - Low: budget < 5000 OR unclear request\",\n\"suggestedResponse\": \"A short, polite, personalized draft email back to the lead. Adapt tone based on priority:\n     - High: Enthusiastic, personalized, suggest a call/meeting, highlight agency expertise\n     - Medium: Standard professional response, express interest, ask for more details or availability\n     - Low: Polite, automated-style message that gently disqualifies the lead or points them to alternative resources/free guides\",\n}\n\nRules:\n- Always return valid JSON only (no extra text, no explanations).\n- The \"suggestedResponse\" should sound friendly and professional, and include the client’s name if provided.\n- don't include the subject of the email\n\nName of our agency: Creative Agency\n\n\n\n"
+            }
+          ]
+        },
+        "simplify": false,
+        "jsonOutput": true,
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.googleGemini",
+      "typeVersion": 1,
+      "position": [
+        -416,
+        -288
+      ],
+      "id": "42e5d592-95f1-4a00-86db-94b68de5f102",
+      "name": "Message a model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "r0gSYDRRRV93Gzky",
+          "name": "Google Gemini(PaLM) Api account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Access current item’s JSON\nconst response = $json;\n\n// Extract Gemini’s raw text\nconst rawText = response.candidates[0].content.parts[0].text;\n\n// Parse JSON\nlet clean;\ntry {\n    clean = JSON.parse(rawText);\n} catch (err) {\n    throw new Error(\"Failed to parse Gemini JSON: \" + err + \"\\nRaw text: \" + rawText);\n}\n\n// ✅ Return as one item with `json`\nreturn {\n    json: clean\n};\n\n\n\n\n\n\n\n\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -96,
+        -288
+      ],
+      "id": "0cd870f8-49f7-4711-8cc2-4642e113d6e6",
+      "name": "Code"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.priority }}",
+                    "rightValue": "High",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "8d4029fe-860b-47e1-8b01-84b391837e4f"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "68c66755-2d9e-48bb-8cd1-8814d9c70b67",
+                    "leftValue": "={{ $json.priority }}",
+                    "rightValue": "Medium",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "bd466bb5-4399-477e-8b6a-a52699b74638",
+                    "leftValue": "={{ $json.priority }}",
+                    "rightValue": "Low",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        96,
+        -304
+      ],
+      "id": "29901ab2-a32e-452b-b312-69bac820e241",
+      "name": "Switch"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1yR50VTD1_xQAbye8rgRLVJm701Z8fESEfYhwbT3-EbI",
+          "mode": "list",
+          "cachedResultName": " CRM",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1yR50VTD1_xQAbye8rgRLVJm701Z8fESEfYhwbT3-EbI/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1yR50VTD1_xQAbye8rgRLVJm701Z8fESEfYhwbT3-EbI/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Name": "={{ $('Webhook').item.json.body.fullName }}",
+            "Email": "={{ $('Webhook').item.json.body.email }}",
+            "Company": "={{ $('Webhook').item.json.body.company }}",
+            "Priority": "={{ $json.priority }}",
+            "Summary": "={{ $json.summary }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Name",
+              "displayName": "Name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Email",
+              "displayName": "Email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Company",
+              "displayName": "Company",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Priority",
+              "displayName": "Priority",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Summary",
+              "displayName": "Summary",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        304,
+        -560
+      ],
+      "id": "8cf107cd-1292-4ced-add6-0512bd4fc910",
+      "name": "Append row in sheet",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "h5u5Vut1meNs1e7j",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "authentication": "webhook",
+        "content": "=🔥 New High-Priority Lead! 🔥\n\nClient: {{ $('Webhook').item.json.body.company }}\n\nSummary: {{ $json.summary }}\n\nScore: {{ $json.qualificationScore }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.discord",
+      "typeVersion": 2,
+      "position": [
+        512,
+        -544
+      ],
+      "id": "1aac83ff-e482-4476-b621-c2f08226535a",
+      "name": "Discord",
+      "webhookId": "3c214d52-6cf5-434c-88ab-2b7fb8ab52e0",
+      "credentials": {
+        "discordWebhookApi": {
+          "id": "zSzZEukHGOHIiPW2",
+          "name": "Discord Webhook account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $('Webhook').item.json.body.email }}",
+        "subject": "Your Inquiry with Creative Agency",
+        "emailType": "text",
+        "message": "={{$json.suggestedResponse}}\n\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        720,
+        -528
+      ],
+      "id": "82f9db0e-7ab0-4c43-898e-8f57616cdee3",
+      "name": "Send a message",
+      "webhookId": "e48d20ac-94b1-4a47-b404-ad39e4f40855",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "mpdeVAeoCPttSsvB",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1yR50VTD1_xQAbye8rgRLVJm701Z8fESEfYhwbT3-EbI",
+          "mode": "list",
+          "cachedResultName": " CRM",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1yR50VTD1_xQAbye8rgRLVJm701Z8fESEfYhwbT3-EbI/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1yR50VTD1_xQAbye8rgRLVJm701Z8fESEfYhwbT3-EbI/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Name": "={{ $('Webhook').item.json.body.fullName }}",
+            "Email": "={{ $('Webhook').item.json.body.email }}",
+            "Company": "={{ $('Webhook').item.json.body.company }}",
+            "Priority": "={{ $json.priority }}",
+            "Summary": "={{ $json.summary }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Name",
+              "displayName": "Name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Email",
+              "displayName": "Email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Company",
+              "displayName": "Company",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Priority",
+              "displayName": "Priority",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Summary",
+              "displayName": "Summary",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        560,
+        -352
+      ],
+      "id": "7e691a76-5190-4c7c-a835-20ac77496978",
+      "name": "Append row in sheet1",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "h5u5Vut1meNs1e7j",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $('Webhook').item.json.body.email }}",
+        "subject": "Your Inquiry with Creative Agency",
+        "emailType": "text",
+        "message": "={{$json.suggestedResponse}}\n\n\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        720,
+        -256
+      ],
+      "id": "306f52e7-7f50-4c54-b7a4-92c020d36a92",
+      "name": "Send a message1",
+      "webhookId": "e48d20ac-94b1-4a47-b404-ad39e4f40855",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "mpdeVAeoCPttSsvB",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $('Webhook').item.json.body.email }}",
+        "subject": "Your Inquiry with Creative Agency",
+        "emailType": "text",
+        "message": "={{$json.suggestedResponse}}\n\n\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        528,
+        -160
+      ],
+      "id": "a28ca16c-c59d-49ce-a3e3-8b5e703d57e7",
+      "name": "Send a message2",
+      "webhookId": "e48d20ac-94b1-4a47-b404-ad39e4f40855",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "mpdeVAeoCPttSsvB",
+          "name": "Gmail account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Message a model",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Message a model": {
+      "main": [
+        [
+          {
+            "node": "Code",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code": {
+      "main": [
+        [
+          {
+            "node": "Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch": {
+      "main": [
+        [
+          {
+            "node": "Append row in sheet",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Discord",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Send a message",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Append row in sheet1",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Send a message1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send a message2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "b6748540-6006-4a2d-ac2d-984f6c5859b7",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "4f8e59fa5ce9ce117f47c582fb4560342770f99fd094713f9571221bc159db8e"
+  },
+  "id": "J0YAEiwAB0vpuJ2p",
+  "tags": [
+    {
+      "createdAt": "2025-08-28T13:16:12.062Z",
+      "updatedAt": "2025-08-28T13:16:12.062Z",
+      "id": "kodmsA9dowcrXrPm",
+      "name": "sales"
+    }
+  ]
+}
